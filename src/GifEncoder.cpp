@@ -5,6 +5,7 @@
 //  Created by Jesus Gollonet on 3/20/11.
 
 #include "GifEncoder.h"
+#include <iostream>
 
 // for some reason we're not seeing this from freeimage
 #define DWORD uint32_t
@@ -58,17 +59,48 @@ void GifEncoder::addFrame(ci::gl::Texture2dRef img, float _duration) {
 	const int32_t halfWidth = width / 2;
 
 	const int32_t numBytes = pixels.getPixelBytes();
-	unsigned char * px = new unsigned char[w * h * 8];
+	//CI_LOG_W( numBytes );//   3 bytes
+	//a byte is 8 bits.
+	
+	//unsigned char * px = new unsigned char[w * h * pixels.getPixelBytes()];
+	unsigned char * px = new unsigned char[w * h * 1];
 
 	int pxNum = 0;
-	for (int32_t y = 0; y < pixels.getHeight(); ++y) {
+	/*for (int32_t y = 0; y < pixels.getHeight(); ++y) {
 		for (int32_t x = 0; x < pixels.getWidth(); ++x) {
-			px[pxNum] = (unsigned char)pixels.getData(ivec2(x, y));
-			pxNum++;
+			auto d = pixels.getData();
+			//px[pxNum] = (unsigned char)pixels.getData(ivec2(x, y));
+
+			//px[pxNum] = (unsigned char)pixels.getData(ivec2(x, y));
+			//px[pxNum] = reinterpret_cast<unsigned char>( (d + x * pixels.getPixelInc()) + y * pixels.getRowBytes() );
+
+			px[pxNum++] = 125;// (unsigned char)pixels.getDataRed(ivec2(x, y));
+			px[pxNum++] = 10;
+			px[pxNum++] = 255;
+			//px[pxNum++] = pixels.getDataRed(ivec2(x, y));
+			//px[pxNum++] = pixels.getDataRed(ivec2(x, y));
+			//px[pxNum++] = pixels.getDataRed(ivec2(x, y));
+			///if (y==0&&x==0)
+			///{
+			///	CI_LOG_W(pixels.getData(ivec2(x, y)));
+			///	CI_LOG_W(px[pxNum]);
+			///}
+			//px[pxNum] = pixels.getData(ivec2(x, y));
+			//CI_LOG_W(sizeof(pixels.getData(ivec2(x, y))));    8 /// 8 bits
+			//pxNum++;
 		}
+	}*/
+	//for (int32_t pp = 0; pp < w * h*pixels.getPixelBytes(); ++pp)
+	for (int32_t pp = 0; pp < w * h; ++pp)
+	{
+		px[pp] = 125;
 	}
 
-	addFrame(px, w, h, 8, _duration);
+
+	addFrame(px, w, h, 8 , _duration);
+	//addFrame(px, w, h, 8 * pixels.getPixelBytes(), _duration);
+	//GifFrame * gifFrame = GifEncoder::createGifFrame(px, w, h, 8, _duration);
+	//frames.push_back(gifFrame);
 }
 
 void GifEncoder::addFrame(unsigned char *px, int _w, int _h, int _bitsPerPixel, float duration) {
@@ -92,8 +124,8 @@ void GifEncoder::addFrame(unsigned char *px, int _w, int _h, int _bitsPerPixel, 
 	}
 
 	unsigned char * temp = new unsigned char[w * h * nChannels];
-	/* RTE memcpy(temp, px, w * h * nChannels);*/
-	GifFrame * gifFrame = GifEncoder::createGifFrame(temp, w, h, _bitsPerPixel, tempDuration);
+	//memcpy(temp, px, w * h * nChannels);
+	GifFrame * gifFrame = GifEncoder::createGifFrame(px, w, h, _bitsPerPixel, tempDuration);
 	frames.push_back(gifFrame);
 }
 
@@ -129,8 +161,10 @@ void GifEncoder::doSave() {
 	for (int i = 0; i < frames.size(); i++) {
 		GifFrame * currentFrame = frames[i];
 		processFrame(currentFrame, multi);
+		//CI_LOG_I(i);
 	}
 	FreeImage_CloseMultiBitmap(multi);
+	//CI_LOG_I("done");
 	bSaving = false;
 }
 
