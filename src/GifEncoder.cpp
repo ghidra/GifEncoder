@@ -52,55 +52,28 @@ void GifEncoder::addFrame(ci::gl::Texture2dRef img, float _duration) {
 	}
 	string filename = toString(getElapsedFrames()) + ".jpg";
 	fs::path fr = getAssetPath("") / filename;
-	Surface8u pixels(img->createSource());
-	writeImage(writeFile(fr), pixels);
-	const int32_t height = pixels.getHeight();
-	const int32_t width = pixels.getWidth();
-	const int32_t halfWidth = width / 2;
+    Surface8u pixels(img->createSource(), SurfaceConstraintsDefault(), false);
+    
+//    pixels.setChannelOrder(SurfaceChannelOrder(SurfaceChannelOrder::RGB));
+    
+//    writeImage(writeFile(fr), pixels);
 
-	const int32_t numBytes = pixels.getPixelBytes();
-	//CI_LOG_W( numBytes );//   3 bytes
-	//a byte is 8 bits.
+    const int32_t nChannels = pixels.getPixelBytes();
+//    CI_LOG_V(nChannels);
+//
+//    unsigned char * px = new unsigned char[w * h * nChannels];
+//
+//    int pxNum = 0;
+//    for (int32_t y = 0; y < pixels.getHeight(); ++y) {
+//        for (int32_t x = 0; x < pixels.getWidth(); ++x) {
+//            px[pxNum++] = *(unsigned char*)pixels.getDataRed(ivec2(x, y));
+//            px[pxNum++] = *(unsigned char*)pixels.getDataGreen(ivec2(x, y));
+//            px[pxNum++] = *(unsigned char*)pixels.getDataBlue(ivec2(x, y));
+//        }
+//    }
+    
+	addFrame(pixels.getData(), w, h, 8 * nChannels,  _duration);
 	
-	//unsigned char * px = new unsigned char[w * h * pixels.getPixelBytes()];
-	unsigned char * px = new unsigned char[w * h * 1];
-
-	int pxNum = 0;
-	/*for (int32_t y = 0; y < pixels.getHeight(); ++y) {
-		for (int32_t x = 0; x < pixels.getWidth(); ++x) {
-			auto d = pixels.getData();
-			//px[pxNum] = (unsigned char)pixels.getData(ivec2(x, y));
-
-			//px[pxNum] = (unsigned char)pixels.getData(ivec2(x, y));
-			//px[pxNum] = reinterpret_cast<unsigned char>( (d + x * pixels.getPixelInc()) + y * pixels.getRowBytes() );
-
-			px[pxNum++] = 125;// (unsigned char)pixels.getDataRed(ivec2(x, y));
-			px[pxNum++] = 10;
-			px[pxNum++] = 255;
-			//px[pxNum++] = pixels.getDataRed(ivec2(x, y));
-			//px[pxNum++] = pixels.getDataRed(ivec2(x, y));
-			//px[pxNum++] = pixels.getDataRed(ivec2(x, y));
-			///if (y==0&&x==0)
-			///{
-			///	CI_LOG_W(pixels.getData(ivec2(x, y)));
-			///	CI_LOG_W(px[pxNum]);
-			///}
-			//px[pxNum] = pixels.getData(ivec2(x, y));
-			//CI_LOG_W(sizeof(pixels.getData(ivec2(x, y))));    8 /// 8 bits
-			//pxNum++;
-		}
-	}*/
-	//for (int32_t pp = 0; pp < w * h*pixels.getPixelBytes(); ++pp)
-	for (int32_t pp = 0; pp < w * h; ++pp)
-	{
-		px[pp] = 125;
-	}
-
-
-	addFrame(px, w, h, 8 , _duration);
-	//addFrame(px, w, h, 8 * pixels.getPixelBytes(), _duration);
-	//GifFrame * gifFrame = GifEncoder::createGifFrame(px, w, h, 8, _duration);
-	//frames.push_back(gifFrame);
 }
 
 void GifEncoder::addFrame(unsigned char *px, int _w, int _h, int _bitsPerPixel, float duration) {
@@ -123,9 +96,9 @@ void GifEncoder::addFrame(unsigned char *px, int _w, int _h, int _bitsPerPixel, 
 		break;
 	}
 
-	unsigned char * temp = new unsigned char[w * h * nChannels];
-	//memcpy(temp, px, w * h * nChannels);
-	GifFrame * gifFrame = GifEncoder::createGifFrame(px, w, h, _bitsPerPixel, tempDuration);
+     unsigned char * temp = new unsigned char[w * h * nChannels];
+    memcpy(temp, px, w * h * nChannels);
+	GifFrame * gifFrame = GifEncoder::createGifFrame(temp, w, h, _bitsPerPixel, tempDuration);
 	frames.push_back(gifFrame);
 }
 
@@ -164,7 +137,7 @@ void GifEncoder::doSave() {
 		//CI_LOG_I(i);
 	}
 	FreeImage_CloseMultiBitmap(multi);
-	//CI_LOG_I("done");
+//    CI_LOG_I("done");
 	bSaving = false;
 }
 
@@ -197,94 +170,83 @@ int GifEncoder::getClosestToGreenScreenPaletteColorIndex() {
 }
 
 void GifEncoder::processFrame(GifFrame * frame, FIMULTIBITMAP *multi) {
-	FIBITMAP * bmp = NULL;
-	// we need to swap the channels if we're on little endian (see ofImage::swapRgb);
-
-	if (frame->bitsPerPixel == 32) {
-		CI_LOG_V("image is transparent!");
-		frame = convertTo24BitsWithGreenScreen(frame);
-	}
-
-#ifdef TARGET_LITTLE_ENDIAN
-	swapRgb(frame);
-#endif
-
-	// from here on, we can only deal with 24 bits
-
-	// get the pixel data
-	bmp = FreeImage_ConvertFromRawBits(
-		frame->pixels,
-		frame->width,
-		frame->height,
-		frame->width*(frame->bitsPerPixel / 8),
-		frame->bitsPerPixel,
-		0, 0, 0, true // in of006 this (topdown) had to be false.
-	);
-
-	FIBITMAP * bmpConverted;
-
-#ifdef TARGET_LITTLE_ENDIAN
-	swapRgb(frame);
-#endif
-
-	FIBITMAP * quantizedBmp = NULL;
-	FIBITMAP * ditheredBmp = NULL;
-	FIBITMAP * processedBmp = NULL;
-
-
-	quantizedBmp = FreeImage_ColorQuantizeEx(bmp, FIQ_WUQUANT, nColors);
-	processedBmp = quantizedBmp;
-
-	if (nChannels == 4) {
-		calculatePalette(processedBmp);
-		FreeImage_SetTransparentIndex(processedBmp, getClosestToGreenScreenPaletteColorIndex());
-	}
-
-	// dithering :)
-	if (ditherMode > GIF_DITHER_NONE) {
-		ditheredBmp = FreeImage_Dither(processedBmp, (FREE_IMAGE_DITHER)ditherMode);
-		processedBmp = ditheredBmp;
-	}
-
-	DWORD frameDuration = (DWORD)(frame->duration * 1000.f);
-
-	// TODO: use processedBmp
-	//// clear any animation metadata used by this dib as we’ll adding our own ones
-	//FreeImage_SetMetadata(FIMD_ANIMATION, processedBmp, NULL, NULL);
-	//// add animation tags to dib[frameNum]
-	//FITAG *tag = FreeImage_CreateTag();
-	//if(tag) {
-	//    FreeImage_SetTagKey(tag, "FrameTime");
-	//    FreeImage_SetTagType(tag, FIDT_LONG);
-	//    FreeImage_SetTagCount(tag, 1);
-	//    FreeImage_SetTagLength(tag, 4);
-	//    FreeImage_SetTagValue(tag, &frameDuration);
-	//    FreeImage_SetMetadata(FIMD_ANIMATION, processedBmp, FreeImage_GetTagKey(tag), tag);
-	//    FreeImage_DeleteTag(tag);
-	//}
-	//
-	//FreeImage_AppendPage(multi, processedBmp);
-		// clear any animation metadata used by this dib as we’ll adding our own ones
-	FreeImage_SetMetadata(FIMD_ANIMATION, bmp, NULL, NULL);
-	// add animation tags to dib[frameNum]
-	FITAG *tag = FreeImage_CreateTag();
-	if (tag) {
-		FreeImage_SetTagKey(tag, "FrameTime");
-		FreeImage_SetTagType(tag, FIDT_LONG);
-		FreeImage_SetTagCount(tag, 1);
-		FreeImage_SetTagLength(tag, 4);
-		FreeImage_SetTagValue(tag, &frameDuration);
-		FreeImage_SetMetadata(FIMD_ANIMATION, bmp, FreeImage_GetTagKey(tag), tag);
-		FreeImage_DeleteTag(tag);
-	}
-
-	FreeImage_AppendPage(multi, bmp);
-	// clear freeimage stuff
-	if (bmp != NULL) FreeImage_Unload(bmp);
-	if (quantizedBmp != NULL) FreeImage_Unload(quantizedBmp);
-	if (ditheredBmp != NULL) FreeImage_Unload(ditheredBmp);
-
-	// no need to unload processedBmp, as it points to either of the above
+    FIBITMAP * bmp = NULL;
+    // we need to swap the channels if we're on little endian (see ofImage::swapRgb);
+    
+    
+    if (frame->bitsPerPixel ==32){
+        CI_LOG_V("image is transparent!");
+        frame = convertTo24BitsWithGreenScreen(frame);
+    }
+    
+//#ifdef TARGET_LITTLE_ENDIAN
+    swapRgb(frame);
+//#endif
+    
+    
+    // from here on, we can only deal with 24 bits
+    
+    // get the pixel data
+    bmp    = FreeImage_ConvertFromRawBits(
+                                          frame->pixels,
+                                          frame->width,
+                                          frame->height,
+                                          frame->width*(frame->bitsPerPixel/8),
+                                          frame->bitsPerPixel,
+                                          0, 0, 0, true // in of006 this (topdown) had to be false.
+                                          );
+    
+//    FIBITMAP * bmpConverted;
+    
+//#ifdef TARGET_LITTLE_ENDIAN
+    swapRgb(frame);
+//#endif
+    
+    FIBITMAP * quantizedBmp = NULL;
+    FIBITMAP * ditheredBmp  = NULL;
+    FIBITMAP * processedBmp = NULL;
+    
+    
+    quantizedBmp = FreeImage_ColorQuantizeEx(bmp, FIQ_WUQUANT, nColors);
+    processedBmp = quantizedBmp;
+    
+    if (nChannels == 4){
+        calculatePalette(processedBmp);
+        FreeImage_SetTransparentIndex(processedBmp,getClosestToGreenScreenPaletteColorIndex());
+    }
+    
+    
+    
+    // dithering :)
+    if(ditherMode > GIF_DITHER_NONE) {
+        ditheredBmp = FreeImage_Dither(processedBmp, (FREE_IMAGE_DITHER)ditherMode);
+        processedBmp = ditheredBmp;
+    }
+    
+    DWORD frameDuration = (DWORD) (frame->duration * 1000.f);
+    
+    // clear any animation metadata used by this dib as we’ll adding our own ones
+    FreeImage_SetMetadata(FIMD_ANIMATION, processedBmp, NULL, NULL);
+    // add animation tags to dib[frameNum]
+    FITAG *tag = FreeImage_CreateTag();
+    if(tag) {
+        FreeImage_SetTagKey(tag, "FrameTime");
+        FreeImage_SetTagType(tag, FIDT_LONG);
+        FreeImage_SetTagCount(tag, 1);
+        FreeImage_SetTagLength(tag, 4);
+        FreeImage_SetTagValue(tag, &frameDuration);
+        FreeImage_SetMetadata(FIMD_ANIMATION, processedBmp, FreeImage_GetTagKey(tag), tag);
+        FreeImage_DeleteTag(tag);
+    }
+    
+    FreeImage_AppendPage(multi, processedBmp);
+    
+    // clear freeimage stuff
+    if(bmp          != NULL) FreeImage_Unload(bmp);
+    if(quantizedBmp != NULL) FreeImage_Unload(quantizedBmp);
+    if(ditheredBmp  != NULL) FreeImage_Unload(ditheredBmp);
+    
+    // no need to unload processedBmp, as it points to either of the above
 }
 
 GifEncoder::GifFrame * GifEncoder::convertTo24BitsWithGreenScreen(GifFrame * frame) {
