@@ -9,16 +9,24 @@
 	url="https://github.com/sophiadigitalart/Cinder-GifEncoder"
 	git="git://github.com/sophiadigitalart/Cinder-GifEncoder.git"
 	>
-	<supports os="msw" />
-	<includePath>include</includePath>
-	<includePath>lib</includePath>
-	<includePath>src</includePath>
-	<headerPattern>include/*.h</headerPattern>
-	<sourcePattern>src/*.cpp</sourcePattern>
-	<sourcePattern>src/*.c</sourcePattern>
+	
+	<platform os="msw">
+		<includePath>lib</includePath>
+		<includePath>src</includePath>
+		<headerPattern>src/*.h</headerPattern>
+		<sourcePattern>src/*.cpp</sourcePattern>
+		<sourcePattern>src/*.c</sourcePattern>
 		<libraryPath>lib</libraryPath>
 		<staticLibrary absolute="true">FreeImage.lib</staticLibrary>
 		<buildCopy>lib/FreeImage.dll</buildCopy>
+	</platform>
+	<platform os="macosx">
+		<sourcePattern>src/*.cpp</sourcePattern>
+		<headerPattern>src/*.h</headerPattern>
+		<includePath>src</includePath>
+		<includePath>/usr/local/Cellar/freeimage/3.18.0/include</includePath>
+		<staticLibrary>/usr/local/Cellar/freeimage/3.18.0/lib/libfreeimage.a</staticLibrary>
+	</platform>
 </block>
 <template>templates/GifEncoder/template.xml</template>
 </cinder>
