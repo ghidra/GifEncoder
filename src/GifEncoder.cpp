@@ -129,8 +129,8 @@ void GifEncoder::save(string _fileName) {
 
 void GifEncoder::doSave() {
 	// create a multipage bitmap
-	fs::path fr = getAssetPath("") / fileName;
-	FIMULTIBITMAP *multi = FreeImage_OpenMultiBitmap(FIF_GIF, fr.string().c_str(), TRUE, FALSE);
+//    fs::path fr = getAssetPath("") / fileName;
+	FIMULTIBITMAP *multi = FreeImage_OpenMultiBitmap(FIF_GIF, fileName.c_str(), TRUE, FALSE);
 	for (int i = 0; i < frames.size(); i++) {
 		GifFrame * currentFrame = frames[i];
 		processFrame(currentFrame, multi);

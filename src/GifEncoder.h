@@ -48,6 +48,7 @@ class GifEncoder {
         // blocking, verbose
         //void start() {startThread(true);}
         //void stop() {stopThread();}
+        void clearFrames(){frames.clear();};
         void exit();
 		void reset();
         
