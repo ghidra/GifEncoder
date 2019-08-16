@@ -49,6 +49,7 @@ class GifEncoder {
         //void start() {startThread(true);}
         //void stop() {stopThread();}
         void clearFrames(){frames.clear();};
+        int getNumberOfFrames() const {return frames.size();};
         void exit();
 		void reset();
         
